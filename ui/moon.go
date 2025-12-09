@@ -6,11 +6,46 @@ import (
 	"math"
 	"time"
 
+	"github.com/cr4sh87/astro-lair-go/services"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
+
+// MoonSpriteProvider è un'interfaccia per fornire gli sprite della luna
+type MoonSpriteProvider interface {
+	GetMoonSprite(idx int) fyne.Resource
+}
+
+var moonProvider MoonSpriteProvider
+
+// SetMoonSpriteProvider imposta il provider per gli sprite della luna
+func SetMoonSpriteProvider(provider MoonSpriteProvider) {
+	moonProvider = provider
+}
+
+// GetMoonSpriteByIndex wrapper che chiama il provider
+func GetMoonSpriteByIndex(idx int) fyne.Resource {
+	if moonProvider == nil {
+		fmt.Println("[ERROR] MoonSpriteProvider non è stato inizializzato")
+		return nil
+	}
+	return moonProvider.GetMoonSprite(idx)
+}
+
+// InitMoonProviderForUI inizializza il provider della luna per il package ui.
+func InitMoonProviderForUI() {
+	SetMoonSpriteProvider(&moonSpriteProviderImpl{})
+}
+
+// moonSpriteProviderImpl implementa MoonSpriteProvider usando il servizio delle risorse embeddate.
+type moonSpriteProviderImpl struct{}
+
+func (m *moonSpriteProviderImpl) GetMoonSprite(idx int) fyne.Resource {
+	return services.GetMoonSpriteByIndex(idx)
+}
 
 // =======================
 //  MoonPhaseCalculator

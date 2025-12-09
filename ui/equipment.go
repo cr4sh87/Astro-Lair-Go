@@ -11,6 +11,49 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// EquipmentConfig definisce i parametri della strumentazione.
+type EquipmentConfig struct {
+	PrimaryName          string
+	PrimaryFocalLengthMm float64
+	PrimaryFocalRatio    float64
+	SecondaryName        string
+	ImagingCamera        string
+	GuideCamera          string
+}
+
+// Global reference to equipment config (set from main)
+var equipmentConfigRef *EquipmentConfig
+
+// SetEquipmentConfig sets the global equipment config reference
+func SetEquipmentConfig(cfg *EquipmentConfig) {
+	equipmentConfigRef = cfg
+}
+
+// getEquipmentConfig returns the current equipment config
+func getEquipmentConfig() *EquipmentConfig {
+	if equipmentConfigRef == nil {
+		return &EquipmentConfig{}
+	}
+	return equipmentConfigRef
+}
+
+// NewDefaultEquipmentConfig restituisce una configurazione predefinita.
+func NewDefaultEquipmentConfig() *EquipmentConfig {
+	return &EquipmentConfig{
+		PrimaryName:          "Newton 200/800",
+		PrimaryFocalLengthMm: 800.0,
+		PrimaryFocalRatio:    4.0,
+		SecondaryName:        "",
+		ImagingCamera:        "CCD Moravian",
+		GuideCamera:          "ZWO ASI120MM",
+	}
+}
+
+// WindowAccessor interface for testability
+type WindowAccessor interface {
+	GetWindow() fyne.Window
+}
+
 // ShowEquipmentDialog dialogo configurazione equipaggiamento
 func ShowEquipmentDialog(win fyne.Window) {
 	showEquipmentDialog(win)
