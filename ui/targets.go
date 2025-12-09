@@ -1,14 +1,16 @@
-package main
+package ui
 
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"math"
-	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/cr4sh87/astro-lair-go/models"
+	"github.com/cr4sh87/astro-lair-go/services"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -19,114 +21,65 @@ import (
 //  DSO Catalog (JSON)
 // =======================
 
-type DsoCatalog struct {
-	Version     int         `json:"version"`
-	GeneratedAt string      `json:"generatedAt"`
-	Objects     []DsoObject `json:"objects"`
+// Utilizzare i tipi definiti in models package
+type DsoCatalog = models.DsoCatalog
+type DsoObject = models.DsoObject
+type TargetObject = models.TargetObject
+
+var targetsByCatalog = models.TargetsByaCatalog
+
+func floatPtr(f float64) *float64 { return models.FloatPtr(f) }
+
+// =======================
+//  Helpers RA/Dec
+// =======================
+
+func formatRAFromDeg(raDeg float64) string {
+	// RA in ore: gradi / 15
+	totalSeconds := raDeg / 15.0 * 3600.0
+	if totalSeconds < 0 {
+		totalSeconds = math.Mod(totalSeconds, 24*3600)
+		if totalSeconds < 0 {
+			totalSeconds += 24 * 3600
+		}
+	}
+	h := int(totalSeconds / 3600)
+	m := int(totalSeconds/60) % 60
+	s := totalSeconds - float64(h*3600+m*60)
+	return fmt.Sprintf("%02dh %02dm %04.1fs", h, m, s)
 }
 
-type DsoObject struct {
-	ID                string   `json:"id"`
-	Catalog           string   `json:"catalog"`
-	Code              string   `json:"code"`
-	Number            *int     `json:"number"`
-	NGC               *string  `json:"ngc"`
-	Name              string   `json:"name"`
-	Type              string   `json:"type"`
-	Constellation     string   `json:"constellation"`
-	RADeg             *float64 `json:"raDeg"`
-	DecDeg            *float64 `json:"decDeg"`
-	Mag               *float64 `json:"mag"`
-	SurfaceBrightness *float64 `json:"surfaceBrightness"`
-	ImageURL          *string  `json:"imageUrl"`
+func formatDecFromDeg(decDeg float64) string {
+	sign := '+'
+	if decDeg < 0 {
+		sign = '-'
+	}
+	absDeg := math.Abs(decDeg)
+	totalArcsec := absDeg * 3600.0
+	d := int(totalArcsec / 3600)
+	m := int(totalArcsec/60) % 60
+	s := totalArcsec - float64(d*3600+m*60)
+	return fmt.Sprintf("%c%02d° %02d' %04.1f\"", sign, d, m, s)
 }
 
-type TargetObject struct {
-	Catalog       string
-	Code          string
-	Name          string
-	Type          string
-	Magnitude     float64
-	SurfaceBright *float64
-	RA            string
-	Dec           string
-	Constellation string
-}
+// =======================
+//  Catalog loading
+// =======================
 
-var targetsByCatalog = map[string][]TargetObject{
-	"Messier": {
-		{
-			Catalog:       "Messier",
-			Code:          "M31",
-			Name:          "Galassia di Andromeda",
-			Type:          "Galassia a spirale",
-			Magnitude:     3.4,
-			SurfaceBright: floatPtr(22.0),
-			RA:            "00h 42m 44s",
-			Dec:           "+41° 16′ 09″",
-			Constellation: "Andromeda",
-		},
-		{
-			Catalog:       "Messier",
-			Code:          "M42",
-			Name:          "Nebulosa di Orione",
-			Type:          "Nebulosa a emissione",
-			Magnitude:     4.0,
-			SurfaceBright: floatPtr(21.0),
-			RA:            "05h 35m 17s",
-			Dec:           "−05° 23′ 28″",
-			Constellation: "Orione",
-		},
-		{
-			Catalog:       "Messier",
-			Code:          "M45",
-			Name:          "Pleiadi",
-			Type:          "Ammasso aperto",
-			Magnitude:     1.6,
-			SurfaceBright: nil,
-			RA:            "03h 47m 24s",
-			Dec:           "+24° 07′ 00″",
-			Constellation: "Toro",
-		},
-	},
-	"NGC": {
-		{
-			Catalog:       "NGC",
-			Code:          "NGC 7000",
-			Name:          "Nebulosa Nord America",
-			Type:          "Nebulosa a emissione",
-			Magnitude:     4.0,
-			SurfaceBright: nil,
-			RA:            "20h 58m",
-			Dec:           "+44° 20′",
-			Constellation: "Cigno",
-		},
-		{
-			Catalog:       "NGC",
-			Code:          "NGC 253",
-			Name:          "Galassia dello Scultore",
-			Type:          "Galassia a spirale",
-			Magnitude:     8.0,
-			SurfaceBright: floatPtr(22.5),
-			RA:            "00h 47m 33s",
-			Dec:           "−25° 17′ 18″",
-			Constellation: "Scultore",
-		},
-	},
-}
-
-func floatPtr(f float64) *float64 { return &f }
-
-// Prova prima a caricare il catalogo DSO dal repo remoto.
-// Se fallisce, torna al catalogo embedded (targetsByCatalog).
 func buildTargetsCatalog() map[string][]TargetObject {
-	url := "https://raw.githubusercontent.com/cr4sh87/Astro-Lair/refs/heads/main/catalog/dso_catalog.json"
-
-	m, err := loadDsoTargetsFromURL(url)
-	if err == nil && len(m) > 0 {
-		return m
+	data, err := os.ReadFile(services.DSOCatalogLocalPath)
+	if err == nil {
+		m, err := parseDsoTargetsJSON(data)
+		if err == nil && len(m) > 0 {
+			fmt.Printf("[Targets] Caricato catalogo dinamico (%d cataloghi)\n", len(m))
+			return m
+		}
+		fmt.Printf("[Targets] Catalogo JSON non valido o vuoto, uso fallback. err=%v len=%d\n", err, len(m))
+	} else {
+		fmt.Printf("[Targets] Nessun catalogo locale (%s): %v. Uso fallback.\n", services.DSOCatalogLocalPath, err)
 	}
 
+	// fallback: catalogo hardcoded
 	return targetsByCatalog
 }
 
@@ -147,6 +100,9 @@ func parseDsoTargetsJSON(data []byte) (map[string][]TargetObject, error) {
 		if code == "" && o.Number != nil {
 			code = fmt.Sprintf("%d", *o.Number)
 		}
+		if code == "" {
+			code = o.ID
+		}
 
 		var mag float64
 		if o.Mag != nil {
@@ -157,11 +113,11 @@ func parseDsoTargetsJSON(data []byte) (map[string][]TargetObject, error) {
 
 		raStr := ""
 		if o.RADeg != nil {
-			raStr = fmt.Sprintf("%.3f°", *o.RADeg)
+			raStr = formatRAFromDeg(*o.RADeg)
 		}
 		decStr := ""
 		if o.DecDeg != nil {
-			decStr = fmt.Sprintf("%.3f°", *o.DecDeg)
+			decStr = formatDecFromDeg(*o.DecDeg)
 		}
 
 		t := TargetObject{
@@ -185,25 +141,6 @@ func parseDsoTargetsJSON(data []byte) (map[string][]TargetObject, error) {
 	}
 
 	return out, nil
-}
-
-func loadDsoTargetsFromURL(url string) (map[string][]TargetObject, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d %s", resp.StatusCode, resp.Status)
-	}
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return parseDsoTargetsJSON(data)
 }
 
 // helper per ordinare i target in base alla parte numerica del codice
@@ -243,7 +180,8 @@ type TargetsView struct {
 	catalogSelector *widget.Select
 }
 
-func NewTargetsView(byCatalog map[string][]TargetObject) *TargetsView {
+// 👇 nome standardizzato
+func BuildTargetsView(byCatalog map[string][]TargetObject) *TargetsView {
 	tv := &TargetsView{
 		allByCatalog: byCatalog,
 	}

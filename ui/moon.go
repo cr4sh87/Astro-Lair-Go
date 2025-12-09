@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"fmt"
@@ -81,15 +81,15 @@ func isNearPhase(value, target float64) bool {
 // =======================
 
 // Restituisce il path dell'immagine della Luna in base alla fase (0..1).
-// Aspetta di trovare i file:
-// assets/moon/moon_00.jpg
-// assets/moon/moon_12.jpg
-// assets/moon/moon_25.jpg
-// assets/moon/moon_37.jpg
-// assets/moon/moon_50.jpg
-// assets/moon/moon_62.jpg
-// assets/moon/moon_75.jpg
-// assets/moon/moon_87.jpg
+// Aspetta di trovare i file (embedded tramite services):
+// services/assets/moon/moon_00.jpg
+// services/assets/moon/moon_12.jpg
+// services/assets/moon/moon_25.jpg
+// services/assets/moon/moon_37.jpg
+// services/assets/moon/moon_50.jpg
+// services/assets/moon/moon_62.jpg
+// services/assets/moon/moon_75.jpg
+// services/assets/moon/moon_87.jpg
 func moonPhaseImageFile(phase float64) string {
 	// 8 "bucket" da 0 a 7
 	idx := int(math.Round(phase * 8))
@@ -99,23 +99,23 @@ func moonPhaseImageFile(phase float64) string {
 
 	switch idx {
 	case 0:
-		return "assets/moon/moon_00.jpg" // Luna Nuova
+		return "services/assets/moon/moon_00.jpg" // Luna Nuova
 	case 1:
-		return "assets/moon/moon_12.jpg" // Falce crescente
+		return "services/assets/moon/moon_12.jpg" // Falce crescente
 	case 2:
-		return "assets/moon/moon_25.jpg" // Primo Quarto
+		return "services/assets/moon/moon_25.jpg" // Primo Quarto
 	case 3:
-		return "assets/moon/moon_37.jpg" // Gibbosa crescente
+		return "services/assets/moon/moon_37.jpg" // Gibbosa crescente
 	case 4:
-		return "assets/moon/moon_50.jpg" // Piena
+		return "services/assets/moon/moon_50.jpg" // Piena
 	case 5:
-		return "assets/moon/moon_62.jpg" // Gibbosa calante
+		return "services/assets/moon/moon_62.jpg" // Gibbosa calante
 	case 6:
-		return "assets/moon/moon_75.jpg" // Ultimo Quarto
+		return "services/assets/moon/moon_75.jpg" // Ultimo Quarto
 	case 7:
-		return "assets/moon/moon_87.jpg" // Falce calante
+		return "services/assets/moon/moon_87.jpg" // Falce calante
 	default:
-		return "assets/moon/moon_00.jpg"
+		return "services/assets/moon/moon_00.jpg"
 	}
 }
 
@@ -221,7 +221,7 @@ func buildMoonView() fyne.CanvasObject {
 		if idx == 8 {
 			idx = 7
 		}
-		res := getMoonSpriteByIndex(idx)
+		res := GetMoonSpriteByIndex(idx)
 		if res != nil {
 			moonImg.Resource = res
 			moonImg.Refresh()

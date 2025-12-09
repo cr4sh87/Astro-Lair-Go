@@ -1,7 +1,9 @@
-package main
+package ui
 
 import (
 	"image/color"
+
+	"github.com/cr4sh87/astro-lair-go/services"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -16,6 +18,11 @@ const (
 
 	spaceWeatherOverviewGIF = "https://services.swpc.noaa.gov/images/swx-overview-large.gif"
 )
+
+// BuildSpaceWeatherView — Space Weather UI
+func BuildSpaceWeatherView() fyne.CanvasObject {
+	return buildSpaceWeatherView()
+}
 
 func buildSpaceWeatherView() fyne.CanvasObject {
 	// Titolo
@@ -42,11 +49,11 @@ func buildSpaceWeatherView() fyne.CanvasObject {
 	southImg.SetMinSize(fyne.NewSize(260, 260))
 
 	btnLoadNorth := widget.NewButton("Aggiorna Aurora Nord", func() {
-		loadRemoteImage(auroraNorthURL, "Aurora Nord", northImg, statusLabel)
+		services.LoadRemoteImage(auroraNorthURL, "Aurora Nord", northImg, statusLabel)
 	})
 
 	btnLoadSouth := widget.NewButton("Aggiorna Aurora Sud", func() {
-		loadRemoteImage(auroraSouthURL, "Aurora Sud", southImg, statusLabel)
+		services.LoadRemoteImage(auroraSouthURL, "Aurora Sud", southImg, statusLabel)
 	})
 
 	auroraNorthBox := container.NewVBox(
@@ -79,13 +86,13 @@ func buildSpaceWeatherView() fyne.CanvasObject {
 	overviewPlaceholder := canvas.NewRectangle(color.Transparent)
 
 	btnShowOverview := widget.NewButton("Mostra GIF NOAA", func() {
-		loadRemoteAnimation(spaceWeatherOverviewGIF, "Space Weather Overview", overviewStatus, func(frames []fyne.Resource) {
+		services.LoadRemoteAnimation(spaceWeatherOverviewGIF, "Space Weather Overview", overviewStatus, func(frames []fyne.Resource) {
 			if len(frames) == 0 {
 				overviewStatus.SetText("Nessun dato GIF disponibile.")
 				return
 			}
 			overviewStatus.SetText("GIF NOAA pronta.")
-			showGifFullscreen(overviewPlaceholder, frames[0], "Space Weather Overview – NOAA SWPC")
+			showResourcesDialog(overviewPlaceholder, frames, "Space Weather Overview – NOAA SWPC")
 		})
 	})
 
@@ -110,8 +117,8 @@ func buildSpaceWeatherView() fyne.CanvasObject {
 	)
 
 	// Caricamento iniziale delle mappe aurorali
-	loadRemoteImage(auroraNorthURL, "Aurora Nord", northImg, statusLabel)
-	loadRemoteImage(auroraSouthURL, "Aurora Sud", southImg, statusLabel)
+	services.LoadRemoteImage(auroraNorthURL, "Aurora Nord", northImg, statusLabel)
+	services.LoadRemoteImage(auroraSouthURL, "Aurora Sud", southImg, statusLabel)
 
 	return container.NewVScroll(content)
 }

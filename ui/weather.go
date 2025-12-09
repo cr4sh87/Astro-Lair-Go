@@ -1,12 +1,11 @@
-package main
+package ui
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/cr4sh87/astro-lair-go/services"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -22,7 +21,7 @@ const (
 	prefWeatherLon = "weather.lon"
 )
 
-// carica lat/lon se presenti nelle Preferences
+// loadStoredCoords carica lat/lon se presenti nelle Preferences
 func loadStoredCoords() (float64, float64, bool) {
 	app := fyne.CurrentApp()
 	if app == nil {
@@ -45,7 +44,7 @@ func loadStoredCoords() (float64, float64, bool) {
 	return lat, lon, true
 }
 
-// salva la posizione meteo scelta dall’utente
+// saveStoredCoords salva la posizione meteo scelta dall'utente
 func saveStoredCoords(lat, lon float64) {
 	app := fyne.CurrentApp()
 	if app == nil {
@@ -54,102 +53,6 @@ func saveStoredCoords(lat, lon float64) {
 	p := app.Preferences()
 	p.SetString(prefWeatherLat, fmt.Sprintf("%f", lat))
 	p.SetString(prefWeatherLon, fmt.Sprintf("%f", lon))
-}
-
-// =============================================================
-//  AUTO-LOCALIZZAZIONE VIA IP (network-based)
-// =============================================================
-
-type DeviceLocation struct {
-	Lat float64
-	Lon float64
-}
-
-type ipAPIResponse struct {
-	Status  string  `json:"status"`
-	Message string  `json:"message"`
-	Lat     float64 `json:"lat"`
-	Lon     float64 `json:"lon"`
-}
-
-// autoLocateDevice prova a stimare la posizione dal IP pubblico
-// usando il servizio ip-api.com.
-// NON è GPS, ma su Android di solito ti dà una posizione abbastanza vicina.
-func autoLocateDevice() (*DeviceLocation, error) {
-	const url = "http://ip-api.com/json/"
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("errore richiesta IP-geo: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("errore lettura risposta IP-geo: %w", err)
-	}
-
-	var data ipAPIResponse
-	if err := json.Unmarshal(body, &data); err != nil {
-		return nil, fmt.Errorf("errore decode JSON IP-geo: %w", err)
-	}
-
-	if data.Status != "success" {
-		if data.Message != "" {
-			return nil, fmt.Errorf("IP-geo fallita: %s", data.Message)
-		}
-		return nil, fmt.Errorf("IP-geo fallita con stato: %s", data.Status)
-	}
-
-	return &DeviceLocation{
-		Lat: data.Lat,
-		Lon: data.Lon,
-	}, nil
-}
-
-// =============================================================
-//  Open-Meteo Fetch
-// =============================================================
-
-type WeatherResponse struct {
-	Hourly struct {
-		Time       []string  `json:"time"`
-		CloudCover []float64 `json:"cloud_cover"`
-		Humidity   []float64 `json:"relative_humidity_2m"`
-		WindSpeed  []float64 `json:"wind_speed_10m"`
-	} `json:"hourly"`
-}
-
-func fetchWeather(lat, lon float64) (*WeatherResponse, error) {
-	url := fmt.Sprintf(
-		"https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f&hourly=cloud_cover,relative_humidity_2m,wind_speed_10m&forecast_days=1&timezone=auto",
-		lat, lon,
-	)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var wr WeatherResponse
-	if err := json.Unmarshal(data, &wr); err != nil {
-		return nil, err
-	}
-
-	fmt.Printf("Meteo ricevuto: time=%d cloud=%d hum=%d wind=%d\n",
-		len(wr.Hourly.Time),
-		len(wr.Hourly.CloudCover),
-		len(wr.Hourly.Humidity),
-		len(wr.Hourly.WindSpeed),
-	)
-
-	return &wr, nil
 }
 
 // =============================================================
@@ -188,7 +91,7 @@ func buildWeatherView() fyne.CanvasObject {
 		result.SetText("Scarico previsioni…")
 
 		go func() {
-			meteo, err := fetchWeather(lat, lon)
+			meteo, err := services.FetchWeather(lat, lon)
 			if err != nil {
 				fyne.Do(func() {
 					loading.Hide()
@@ -244,13 +147,13 @@ func buildWeatherView() fyne.CanvasObject {
 		updateWeather(lat, lon)
 	})
 
-	// 🔘 Pulsante che forz a la richiesta di posizione (via IP)
+	// 🔘 Pulsante che forza la richiesta di posizione (via IP)
 	useDeviceLocationBtn := widget.NewButton("Usa posizione dispositivo", func() {
 		loading.Show()
 		result.SetText("Rilevo la posizione del dispositivo…")
 
 		go func() {
-			loc, err := autoLocateDevice()
+			loc, err := services.AutoLocateDevice()
 			if err != nil {
 				fyne.Do(func() {
 					loading.Hide()
@@ -289,4 +192,9 @@ func buildWeatherView() fyne.CanvasObject {
 		widget.NewSeparator(),
 		result,
 	)
+}
+
+// BuildWeatherView ritorna la vista meteo
+func BuildWeatherView() fyne.CanvasObject {
+	return buildWeatherView()
 }

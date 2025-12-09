@@ -3,6 +3,9 @@ package main
 import (
 	"image/color"
 
+	"github.com/cr4sh87/astro-lair-go/services"
+	"github.com/cr4sh87/astro-lair-go/ui"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
@@ -14,6 +17,16 @@ import (
 func main() {
 	a := app.NewWithID("com.cr4sh.astrolair.go")
 	w := a.NewWindow("Astro-Lair (Go Edition)")
+
+	// 🔭 Prima cosa: aggiorna il catalogo DSO dal repo GitHub
+	// Se fallisce, buildTargetsCatalog() userà comunque il file esistente (se c'è).
+	services.UpdateDSOCatalogFromGitHub()
+
+	// Inizializza la configurazione dell'equipaggio nel package ui
+	ui.SetEquipmentConfig(ui.NewDefaultEquipmentConfig())
+
+	// Inizializza il provider dei sprite della luna
+	ui.InitMoonProviderForUI()
 
 	// Modalità fullscreen (su Android nasconde la status bar)
 	w.SetFullScreen(true)
@@ -28,7 +41,7 @@ func main() {
 	titleBox := container.NewVBox(title, subtitle)
 
 	settingsBtn := widget.NewButtonWithIcon("", theme.SettingsIcon(), func() {
-		showEquipmentDialog(w)
+		ui.ShowEquipmentDialog(w)
 	})
 
 	topBar := container.NewBorder(
@@ -38,20 +51,21 @@ func main() {
 		settingsBtn,
 	)
 
-	targetsView := NewTargetsView(buildTargetsCatalog())
+	// Qui buildTargetsCatalog() leggerà il file aggiornato in catalog/dso_catalog.json
+	targetsView := ui.BuildTargetsViewPublic(ui.BuildCatalog())
 
 	// Satellites ora ritorna anche una funzione di refresh
-	satView, satRefresh := buildSatellitesView()
+	satView, satRefresh := ui.BuildSatellitesViewPublic()
 
 	tabs := container.NewAppTabs(
-		container.NewTabItem("Home", buildHomeView()),
-		container.NewTabItem("Moon", buildMoonView()),
-		container.NewTabItem("Weather", buildWeatherView()),
-		container.NewTabItem("SpaceWeather", buildSpaceWeatherView()),
-		container.NewTabItem("SOHO", buildSohoView()),
+		container.NewTabItem("Home", ui.BuildHomeView()),
+		container.NewTabItem("Moon", ui.BuildMoonViewPublic()),
+		container.NewTabItem("Weather", ui.BuildWeatherViewPublic()),
+		container.NewTabItem("SpaceWeather", ui.BuildSpaceWeatherView()),
+		container.NewTabItem("SOHO", ui.BuildSohoView()),
 		container.NewTabItem("Satellites", satView),
 		container.NewTabItem("Targets", targetsView.Widget()),
-		container.NewTabItem("Tools", buildToolsView()),
+		container.NewTabItem("Tools", ui.BuildToolsView()),
 	)
 	tabs.SetTabLocation(container.TabLocationBottom)
 
@@ -61,8 +75,6 @@ func main() {
 			satRefresh()
 		}
 	}
-
-	tabs.SetTabLocation(container.TabLocationBottom)
 
 	root := container.NewBorder(
 		topBar,

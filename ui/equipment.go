@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"fmt"
@@ -11,48 +11,31 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// =======================
-//  Configurazione Strumentazione
-// =======================
-
-type EquipmentConfig struct {
-	PrimaryName          string
-	PrimaryFocalLengthMm float64
-	PrimaryFocalRatio    float64
-	SecondaryName        string
-	ImagingCamera        string
-	GuideCamera          string
+// ShowEquipmentDialog dialogo configurazione equipaggiamento
+func ShowEquipmentDialog(win fyne.Window) {
+	showEquipmentDialog(win)
 }
 
-// Default tagliati sul tuo setup reale
-var equipmentConfig = EquipmentConfig{
-	PrimaryName:          "Newton 200/800",
-	PrimaryFocalLengthMm: 800.0,
-	PrimaryFocalRatio:    4.0,
-	SecondaryName:        "",
-	ImagingCamera:        "CCD Moravian",
-	GuideCamera:          "ZWO ASI120MM",
-}
-
-// chiamata dal bottone ⚙️ in main.go
 func showEquipmentDialog(win fyne.Window) {
+	eq := getEquipmentConfig()
+
 	primaryName := widget.NewEntry()
-	primaryName.SetText(equipmentConfig.PrimaryName)
+	primaryName.SetText(eq.PrimaryName)
 
 	primaryFocal := widget.NewEntry()
-	primaryFocal.SetText(fmt.Sprintf("%.1f", equipmentConfig.PrimaryFocalLengthMm))
+	primaryFocal.SetText(fmt.Sprintf("%.1f", eq.PrimaryFocalLengthMm))
 
 	primaryRatio := widget.NewEntry()
-	primaryRatio.SetText(fmt.Sprintf("%.1f", equipmentConfig.PrimaryFocalRatio))
+	primaryRatio.SetText(fmt.Sprintf("%.1f", eq.PrimaryFocalRatio))
 
 	secondaryName := widget.NewEntry()
-	secondaryName.SetText(equipmentConfig.SecondaryName)
+	secondaryName.SetText(eq.SecondaryName)
 
 	imagingCam := widget.NewEntry()
-	imagingCam.SetText(equipmentConfig.ImagingCamera)
+	imagingCam.SetText(eq.ImagingCamera)
 
 	guideCam := widget.NewEntry()
-	guideCam.SetText(equipmentConfig.GuideCamera)
+	guideCam.SetText(eq.GuideCamera)
 
 	form := container.NewVBox(
 		widget.NewLabelWithStyle("Strumento Primario", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
@@ -84,23 +67,27 @@ func showEquipmentDialog(win fyne.Window) {
 				return
 			}
 
-			equipmentConfig.PrimaryName = primaryName.Text
-			equipmentConfig.SecondaryName = secondaryName.Text
-			equipmentConfig.ImagingCamera = imagingCam.Text
-			equipmentConfig.GuideCamera = guideCam.Text
+			eq.PrimaryName = primaryName.Text
+			eq.SecondaryName = secondaryName.Text
+			eq.ImagingCamera = imagingCam.Text
+			eq.GuideCamera = guideCam.Text
 
 			if v, err := strconv.ParseFloat(strings.ReplaceAll(primaryFocal.Text, ",", "."), 64); err == nil {
-				equipmentConfig.PrimaryFocalLengthMm = v
+				eq.PrimaryFocalLengthMm = v
 			}
 			if v, err := strconv.ParseFloat(strings.ReplaceAll(primaryRatio.Text, ",", "."), 64); err == nil {
-				equipmentConfig.PrimaryFocalRatio = v
+				eq.PrimaryFocalRatio = v
 			}
 		},
 		win,
 	).Show()
 }
 
-// chiamata dal tab "Tools" in main.go
+// BuildToolsView — Tools UI
+func BuildToolsView() fyne.CanvasObject {
+	return buildToolsView()
+}
+
 func buildToolsView() fyne.CanvasObject {
 	pixelSizeEntry := widget.NewEntry()
 	pixelSizeEntry.SetText("4.3") // µm
@@ -115,7 +102,8 @@ func buildToolsView() fyne.CanvasObject {
 	resultLabel.Wrapping = fyne.TextWrapWord
 
 	calcBtn := widget.NewButton("Calcola", func() {
-		fLen := equipmentConfig.PrimaryFocalLengthMm
+		eq := getEquipmentConfig()
+		fLen := eq.PrimaryFocalLengthMm
 		if fLen <= 0 {
 			resultLabel.SetText("Configura prima la focale dello strumento primario nelle impostazioni (⚙️).")
 			return
