@@ -29,7 +29,7 @@ func main() {
 	ui.InitMoonProviderForUI()
 
 	// Modalità fullscreen (su Android nasconde la status bar)
-	w.SetFullScreen(true)
+	//w.SetFullScreen(true)
 
 	title := canvas.NewText("Astro-Lair", theme.ForegroundColor())
 	title.TextSize = 20
